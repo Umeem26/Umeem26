@@ -34,7 +34,7 @@
 
 <br><br>
 
-I build mobile and desktop applications for everyday problems —<br>
+I build mobile and desktop applications for everyday problems,<br>
 personal finance, accounting, inventory and point of sale.
 
 <br>
