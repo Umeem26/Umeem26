@@ -1,10 +1,9 @@
-# -*- coding: utf-8 -*-
-"""Regenerates the Liquid Glass SVG assets used by README.md.
+"""Regenerates the SVG assets used by README.md.
 
 Usage:  python3 scripts/generate_assets.py
 No dependencies — writes straight into ./assets.
 """
-import json, math, os
+import math, os
 
 # Icon outlines: Simple Icons (CC0-1.0) — https://simpleicons.org
 # LinkedIn mark drawn from the Font Awesome brand set (CC BY 4.0).
@@ -28,72 +27,35 @@ SI = {
 OUT = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "assets")
 os.makedirs(OUT, exist_ok=True)
 
-FONT = "-apple-system,BlinkMacSystemFont,'SF Pro Display','Segoe UI',Inter,Roboto,Helvetica,Arial,sans-serif"
+SANS = "-apple-system,BlinkMacSystemFont,'SF Pro Display','Segoe UI',Inter,Roboto,Helvetica,Arial,sans-serif"
+MONO = "ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace"
 
 THEMES = {
-  "dark": dict(
-    canvas=[("#09090E", 0.0), ("#0E0C16", 0.5), ("#0A0910", 1.0)],
-    blob_op=0.46,
-    tint="#0B0A12", panel_op=0.52,
-    tile=("#FFFFFF", 0.10),
-    rim=[(0.0,"#FFFFFF",0.46),(0.30,"#FFFFFF",0.08),(0.72,"#FFFFFF",0.05),(1.0,"#FFFFFF",0.20)],
-    hairline=("#FFFFFF", 0.0),
-    sheen=0.06, edgeglow=0.13, grain=0.05,
-    t1="#FAFAFC", t2="#B6B3C6", t3="#8F8BA6",
-    chip_fill=("#FFFFFF",0.075), chip_stroke=("#FFFFFF",0.13), chip_text="#DAD7E6",
-    icon="#F0EEF8", icon_op=0.94,
-    shadow=("#000000",0.40,14,18),
-    sat=1.12,
-  ),
-  "light": dict(
-    canvas=[("#F7F6FB", 0.0), ("#F0EEF8", 0.5), ("#F5F3FA", 1.0)],
-    blob_op=0.60,
-    tint="#FFFFFF", panel_op=0.62,
-    tile=("#FFFFFF", 0.72),
-    rim=[(0.0,"#FFFFFF",0.98),(0.30,"#FFFFFF",0.42),(0.72,"#FFFFFF",0.30),(1.0,"#FFFFFF",0.66)],
-    hairline=("#2C2445", 0.08),
-    sheen=0.26, edgeglow=0.38, grain=0.035,
-    t1="#16151E", t2="#56526B", t3="#827E99",
-    chip_fill=("#FFFFFF",0.68), chip_stroke=("#FFFFFF",0.9), chip_text="#464359",
-    icon="#241F3A", icon_op=0.9,
-    shadow=("#332961",0.16,12,16),
-    sat=1.0,
-  ),
+    "dark": dict(
+        bg="#0B0B0C", dot="#FFFFFF", dot_op=0.13,
+        sweep="#FFFFFF", sweep_op=0.95,
+        t1="#FAFAFA", t2="#8E8E96", t3="#5F5F67",
+        line="#FFFFFF", line_op=0.09, accent="#3FB950",
+    ),
+    "light": dict(
+        bg="#FCFCFC", dot="#0B0B0C", dot_op=0.13,
+        sweep="#0B0B0C", sweep_op=0.62,
+        t1="#0B0B0C", t2="#6B6B73", t3="#9C9CA4",
+        line="#0B0B0C", line_op=0.11, accent="#1A7F37",
+    ),
 }
-
-PALETTE = ["#8B5CF6", "#6366F1", "#22D3EE", "#EC4899", "#A855F7", "#38BDF8"]
 
 
 def esc(s):
-    return (s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;"))
+    return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
 
-def squircle(x, y, w, h, r, n=5.0, seg=13):
-    """Apple-style continuous-corner (superellipse) rounded rectangle path."""
-    r = min(r, min(w, h) / 2.0)
-    pts = []
-
-    def arc(cx, cy, sx, sy, rev):
-        o = []
-        rng = range(seg + 1) if not rev else range(seg, -1, -1)
-        for i in rng:
-            th = (i / seg) * math.pi / 2
-            dx = r * (math.cos(th) ** (2.0 / n))
-            dy = r * (math.sin(th) ** (2.0 / n))
-            o.append((cx + sx * dx, cy + sy * dy))
-        return o
-
-    pts += arc(x + r,     y + r,     -1, -1, False)   # top-left
-    pts += arc(x + w - r, y + r,     +1, -1, True)    # top-right
-    pts += arc(x + w - r, y + h - r, +1, +1, False)   # bottom-right
-    pts += arc(x + r,     y + h - r, -1, +1, True)    # bottom-left
-    d = "M%.1f,%.1f" % pts[0] + "".join("L%.1f,%.1f" % p for p in pts[1:]) + "Z"
-    return d
-
-
-def tw(text, size, weight=400):
-    """Rough advance-width estimate for the system sans stack."""
-    narrow, wide = set("iljItf.,:;'!|()[] "), set("MWmw@")
+def tw(text, size, weight=400, mono=False):
+    """Rough advance-width estimate."""
+    if mono:
+        return len(text) * size * 0.60
+    narrow = set("iljItf.,:;'!|()[] ")
+    wide = set("MWmw@")
     k = 0.60 if weight >= 600 else 0.555
     total = 0.0
     for ch in text:
@@ -108,293 +70,166 @@ def tw(text, size, weight=400):
     return total
 
 
-def defs_common(T, uid, blur=30):
-    c = T["canvas"]
-    stops = "".join('<stop offset="%.2f" stop-color="%s"/>' % (o, col) for col, o in c)
-    rim = "".join('<stop offset="%.2f" stop-color="%s" stop-opacity="%.2f"/>' % (o, col, a)
-                  for o, col, a in T["rim"])
-    sc, sa, sdy, sstd = T["shadow"]
-    return f'''
-<linearGradient id="cv{uid}" x1="0" y1="0" x2="1" y2="1">{stops}</linearGradient>
-<linearGradient id="rim{uid}" x1="0" y1="0" x2="0.15" y2="1">{rim}</linearGradient>
-<linearGradient id="sheen{uid}" x1="0" y1="0" x2="0.55" y2="1">
-  <stop offset="0" stop-color="#FFFFFF" stop-opacity="{T['sheen']:.2f}"/>
-  <stop offset="0.48" stop-color="#FFFFFF" stop-opacity="0"/>
-</linearGradient>
-<filter id="frost{uid}" x="-60%" y="-60%" width="220%" height="220%">
-  <feGaussianBlur stdDeviation="{blur}"/>
-  <feColorMatrix type="saturate" values="{T['sat']}"/>
-</filter>
-<filter id="soft{uid}" x="-60%" y="-60%" width="220%" height="220%">
-  <feGaussianBlur stdDeviation="6"/>
-</filter>
-<filter id="drop{uid}" x="-40%" y="-40%" width="180%" height="180%">
-  <feDropShadow dx="0" dy="{sdy}" stdDeviation="{sstd}" flood-color="{sc}" flood-opacity="{sa}"/>
-</filter>
-<filter id="grain{uid}" x="0%" y="0%" width="100%" height="100%">
-  <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="3" stitchTiles="stitch"/>
-  <feColorMatrix type="saturate" values="0"/>
-</filter>'''
-
-
-def blobs_svg(spec, T, uid):
-    """Soft radial-falloff colour fields; returns (defs, shapes)."""
-    defs, out = [], []
-    for i, (cx, cy, rx, ry, col, op) in enumerate(spec):
-        a = op * T["blob_op"]
-        gid = "b%s%d" % (uid, i)
-        defs.append('<radialGradient id="%s">'
-                    '<stop offset="0" stop-color="%s" stop-opacity="%.3f"/>'
-                    '<stop offset="0.45" stop-color="%s" stop-opacity="%.3f"/>'
-                    '<stop offset="1" stop-color="%s" stop-opacity="0"/></radialGradient>'
-                    % (gid, col, a, col, a * 0.55, col))
-        out.append('<ellipse cx="%.0f" cy="%.0f" rx="%.0f" ry="%.0f" fill="url(#%s)"/>'
-                   % (cx, cy, rx * 1.25, ry * 1.25, gid))
-    return "".join(defs), "".join(out)
-
-
-def glass_panel(uid, key, path_d, T, body="", blur=30):
-    """Frosted panel: tinted translucent layer over a blurred copy of the backdrop."""
-    hc, ha = T["hairline"]
-    hair = ('<path d="%s" fill="none" stroke="%s" stroke-opacity="%.2f" stroke-width="1"/>'
-            % (path_d, hc, ha)) if ha else ""
-    return f'''
-<g filter="url(#drop{uid})"><path d="{path_d}" fill="{T['tint']}" fill-opacity="{T['panel_op']}"/></g>
-<g clip-path="url(#clip{key})">
-  <g filter="url(#frost{uid})">{BLOBS[uid]}</g>
-  <rect x="0" y="0" width="100%" height="100%" fill="{T['tint']}" fill-opacity="{T['panel_op']}"/>
-  <rect x="0" y="0" width="100%" height="100%" fill="url(#sheen{uid})"/>
-  <path d="{path_d}" fill="none" stroke="#FFFFFF" stroke-opacity="{T['edgeglow']}" stroke-width="6" filter="url(#soft{uid})"/>
-  {body}
-</g>
-<path d="{path_d}" fill="none" stroke="url(#rim{uid})" stroke-width="1.4"/>{hair}'''
-
-
-BLOBS = {}
-BLOBDEFS = {}
-
-
-def canvas_open(W, H, T, uid, rx=28, grain=True):
-    g = (f'<rect width="{W}" height="{H}" filter="url(#grain{uid})" opacity="{T["grain"]}"/>'
-         if grain else "")
-    return (f'<g clip-path="url(#canvas{uid})">'
-            f'<rect width="{W}" height="{H}" fill="url(#cv{uid})"/>'
-            f'{BLOBS[uid]}{g}')
-
-
-def head(W, H, uid, rx, extra_defs=""):
-    return (f'<svg xmlns="http://www.w3.org/2000/svg" width="{W}" height="{H}" '
-            f'viewBox="0 0 {W} {H}" role="img" fill="none">'
-            f'<defs><clipPath id="canvas{uid}"><rect width="{W}" height="{H}" rx="{rx}"/></clipPath>'
-            f'{extra_defs}</defs>')
-
-
-def write(name, svg):
-    p = os.path.join(OUT, name)
-    open(p, "w").write(svg)
-    print("%-34s %6.1f KB" % (name, len(svg) / 1024.0))
-
-
 def icon(key, x, y, size, fill, op=1.0):
     s = size / 24.0
     return ('<g transform="translate(%.2f,%.2f) scale(%.4f)">'
             '<path d="%s" fill="%s" fill-opacity="%.2f"/></g>' % (x, y, s, SI[key], fill, op))
 
 
-def chip(x, y, w, h, label, T, uid, fs=14):
-    d = squircle(x, y, w, h, h / 2.0, seg=8)
-    fc, fo = T["chip_fill"]; sc, so = T["chip_stroke"]
-    return ('<path d="%s" fill="%s" fill-opacity="%.2f" stroke="%s" stroke-opacity="%.2f" stroke-width="1"/>'
-            '<text x="%.1f" y="%.1f" font-family="%s" font-size="%d" font-weight="500" fill="%s" '
-            'text-anchor="middle" letter-spacing="0.2">%s</text>'
-            % (d, fc, fo, sc, so, x + w / 2.0, y + h / 2.0 + fs * 0.35, FONT, fs, T["chip_text"], esc(label)))
+def write(name, svg):
+    open(os.path.join(OUT, name), "w").write(svg)
+    print("%-30s %6.1f KB" % (name, len(svg) / 1024.0))
 
 
-# ─────────────────────────────────────────────── HERO ──────────────────────────
+# ───────────────────────────────────────────────────────────────── hero ──────
+HERO_CSS = """
+.fade{opacity:0;animation:rise .85s cubic-bezier(.2,.7,.2,1) forwards}
+.d1{animation-delay:.10s}.d2{animation-delay:.24s}.d3{animation-delay:.38s}
+@keyframes rise{from{opacity:0;transform:translateY(9px)}to{opacity:1;transform:translateY(0)}}
+.sw1{animation:s1 11s linear infinite}
+.sw2{animation:s2 19s linear infinite;animation-delay:-7s}
+@keyframes s1{from{transform:translateX(-780px) skewX(-14deg)}
+              to{transform:translateX(1380px) skewX(-14deg)}}
+@keyframes s2{from{transform:translateX(1380px) skewX(-14deg)}
+              to{transform:translateX(-780px) skewX(-14deg)}}
+.ping{transform-box:fill-box;transform-origin:center;
+      animation:ping 2.8s cubic-bezier(.2,.7,.4,1) infinite}
+@keyframes ping{0%{transform:scale(1);opacity:.55}
+                70%{transform:scale(3.4);opacity:0}
+                100%{transform:scale(3.4);opacity:0}}
+@media (prefers-reduced-motion:reduce){
+  .sw1,.sw2,.ping{animation:none}
+  .fade{opacity:1;animation:none;transform:none}
+}
+"""
+
+
 def build_hero(theme):
-    T = THEMES[theme]; W, H, uid = 1200, 360, "h" + theme[0]
-    BLOBDEFS[uid], BLOBS[uid] = blobs_svg([
-        (1010, 112, 330, 250, PALETTE[0], .95), (1180, 316, 280, 200, PALETTE[2], .70),
-        (880, 336, 300, 180, PALETTE[1], .55), (60, 20, 300, 210, PALETTE[1], .38),
-        (470, 366, 320, 150, PALETTE[4], .22),
-    ], T, uid)
-    px, py, pw, ph, pr = 34, 26, 1132, 308, 52
-    P = squircle(px, py, pw, ph, pr)
+    T = THEMES[theme]
+    W, H = 1200, 300
+    cx = W / 2.0
+    u = theme[0]
 
-    orb = []
-    for i, (ox, oy, orr, c) in enumerate([(1000, 150, 74, PALETTE[0]), (1078, 214, 46, PALETTE[2]),
-                                          (948, 244, 34, PALETTE[3])]):
-        od = squircle(ox - orr, oy - orr, orr * 2, orr * 2, orr * 0.92, seg=12)
-        orb.append(f'<circle cx="{ox}" cy="{oy}" r="{orr*1.05:.0f}" fill="{c}" opacity="0.5" filter="url(#soft{uid})"/>'
-                   f'<path d="{od}" fill="{T["tile"][0]}" fill-opacity="{T["tile"][1]:.2f}"/>'
-                   f'<path d="{od}" fill="url(#sheen{uid})"/>'
-                   f'<path d="{od}" fill="none" stroke="url(#rim{uid})" stroke-width="1.3"/>')
-    orbs = "".join(orb)
+    status = "AVAILABLE FOR COLLABORATION"
+    name = "Hisyam Khaeru Umam"
+    role = "Software Developer  ·  Flutter, Dart & Supabase"
 
-    x = 92
-    chips, cx = [], x
-    for lab in ["Mobile Apps", "Backend & Data", "System Design"]:
-        w = tw(lab, 14, 500) + 34
-        chips.append(chip(cx, 264, w, 34, lab, T, uid)); cx += w + 12
+    # status row: pulsing dot + mono caption, centred as one group
+    sw = tw(status, 11.5, mono=True) + 1.6 * (len(status) - 1)
+    gw = 7 + 10 + sw
+    gx = cx - gw / 2.0
+    dot_cx, dot_cy = gx + 3.5, 86.0
+    status_g = (
+        f'<g class="fade d1">'
+        f'<circle class="ping" cx="{dot_cx:.1f}" cy="{dot_cy}" r="3.5" fill="{T["accent"]}"/>'
+        f'<circle cx="{dot_cx:.1f}" cy="{dot_cy}" r="3.5" fill="{T["accent"]}"/>'
+        f'<text x="{gx + 17:.1f}" y="{dot_cy + 4:.1f}" font-family="{MONO}" font-size="11.5" '
+        f'fill="{T["t2"]}" letter-spacing="1.6">{status}</text></g>')
 
-    body = f'''
-<text x="{x}" y="118" font-family="{FONT}" font-size="15" font-weight="600" fill="{T['t2']}" letter-spacing="4.6">SOFTWARE DEVELOPER</text>
-<text x="{x}" y="186" font-family="{FONT}" font-size="57" font-weight="700" fill="{T['t1']}" letter-spacing="-1.4">Hisyam Khaeru Umam</text>
-<text x="{x}" y="228" font-family="{FONT}" font-size="20" font-weight="400" fill="{T['t2']}" letter-spacing="0.1">@Umeem26 — building impactful solutions through code and logic.</text>
-{"".join(chips)}'''
+    body = f'''{status_g}
+<text class="fade d2" x="{cx}" y="172" text-anchor="middle" font-family="{SANS}" font-size="62"
+      font-weight="700" fill="{T['t1']}" letter-spacing="-1.8">{esc(name)}</text>
+<text class="fade d3" x="{cx}" y="216" text-anchor="middle" font-family="{SANS}" font-size="18"
+      font-weight="400" fill="{T['t2']}" letter-spacing="0.2">{esc(role)}</text>'''
 
-    svg = (head(W, H, uid, 30, BLOBDEFS[uid] + defs_common(T, uid) +
-                f'<clipPath id="clip{uid}p"><path d="{P}"/></clipPath>')
-           + canvas_open(W, H, T, uid)
-           + glass_panel(uid, uid + "p", P, T, orbs)
-           + body + '</g></svg>')
-    write(f"hero-{theme}.svg", svg)
+    return f'''<svg xmlns="http://www.w3.org/2000/svg" width="{W}" height="{H}" viewBox="0 0 {W} {H}" role="img" fill="none">
+<title>{esc(name)} — Software Developer</title>
+<style>{HERO_CSS}</style>
+<defs>
+  <pattern id="dots{u}" width="20" height="20" patternUnits="userSpaceOnUse">
+    <circle cx="1.2" cy="1.2" r="1.2" fill="{T['dot']}"/>
+  </pattern>
+  <radialGradient id="vig{u}" cx="50%" cy="50%" r="60%">
+    <stop offset="0" stop-color="#FFF"/>
+    <stop offset="0.42" stop-color="#FFF"/>
+    <stop offset="1" stop-color="#000"/>
+  </radialGradient>
+  <linearGradient id="swg{u}" x1="0" y1="0" x2="1" y2="0">
+    <stop offset="0" stop-color="{T['sweep']}" stop-opacity="0"/>
+    <stop offset="0.5" stop-color="{T['sweep']}" stop-opacity="1"/>
+    <stop offset="1" stop-color="{T['sweep']}" stop-opacity="0"/>
+  </linearGradient>
+  <mask id="vigm{u}"><rect width="{W}" height="{H}" fill="url(#vig{u})"/></mask>
+  <mask id="dotm{u}"><rect width="{W}" height="{H}" fill="url(#dots{u})"/></mask>
+  <clipPath id="round{u}"><rect width="{W}" height="{H}" rx="16"/></clipPath>
+</defs>
+<rect width="{W}" height="{H}" rx="16" fill="{T['bg']}"/>
+<g clip-path="url(#round{u})">
+  <g mask="url(#vigm{u})">
+    <rect width="{W}" height="{H}" fill="url(#dots{u})" opacity="{T['dot_op']}"/>
+    <g mask="url(#dotm{u})">
+      <rect class="sw1" x="0" y="-160" width="380" height="620" fill="url(#swg{u})" opacity="{T['sweep_op']}"/>
+      <rect class="sw2" x="0" y="-160" width="240" height="620" fill="url(#swg{u})" opacity="{T['sweep_op'] * 0.5:.2f}"/>
+    </g>
+  </g>
+</g>
+{body}
+<rect x="0.5" y="0.5" width="{W - 1}" height="{H - 1}" rx="15.5" fill="none"
+      stroke="{T['line']}" stroke-opacity="{T['line_op']}"/>
+</svg>'''
 
 
-# ───────────────────────────────────────────── TECH DOCK ───────────────────────
-STACK = [("flutter", "Flutter"), ("dart", "Dart"), ("supabase", "Supabase"), ("openjdk", "Java"),
-         ("cplusplus", "C++"), ("python", "Python"), ("postgresql", "PostgreSQL"),
-         ("mysql", "MySQL"), ("blender", "Blender"), ("figma", "Figma")]
+# ──────────────────────────────────────────────────────────────── stack ──────
+STACK = [("flutter", "FLUTTER"), ("dart", "DART"), ("supabase", "SUPABASE"),
+         ("openjdk", "JAVA"), ("cplusplus", "C++"), ("python", "PYTHON"),
+         ("postgresql", "POSTGRESQL"), ("mysql", "MYSQL"),
+         ("blender", "BLENDER"), ("figma", "FIGMA")]
+
+STACK_CSS = """
+.f{opacity:0;animation:in .6s ease-out forwards}
+@keyframes in{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+@media (prefers-reduced-motion:reduce){.f{opacity:1;animation:none;transform:none}}
+"""
 
 
 def build_stack(theme):
-    T = THEMES[theme]; W, H, uid = 1200, 208, "s" + theme[0]
-    BLOBDEFS[uid], BLOBS[uid] = blobs_svg([
-        (80, 24, 300, 200, PALETTE[0], .80), (470, 200, 320, 170, PALETTE[1], .62),
-        (860, 10, 300, 180, PALETTE[5], .52), (1160, 190, 260, 170, PALETTE[2], .55),
-    ], T, uid)
-    px, py, pw, ph, pr = 34, 26, 1132, 156, 46
-    P = squircle(px, py, pw, ph, pr)
+    T = THEMES[theme]
+    W, H = 1200, 138
+    col = W / float(len(STACK))
+    items = []
+    for i, (k, label) in enumerate(STACK):
+        c = col * (i + 0.5)
+        items.append(
+            f'<g class="f" style="animation-delay:{0.05 + i * 0.045:.2f}s">'
+            + icon(k, c - 13, 42, 26, T["t1"], 0.82)
+            + f'<text x="{c:.1f}" y="96" text-anchor="middle" font-family="{MONO}" font-size="10"'
+              f' fill="{T["t3"]}" letter-spacing="1.1">{esc(label)}</text></g>')
 
-    n, ts, gap = len(STACK), 90, 18
-    total = n * ts + (n - 1) * gap
-    sx = px + (pw - total) / 2.0
-    sy = py + (ph - ts) / 2.0
-
-    glow, tiles = [], []
-    for i, (k, _) in enumerate(STACK):
-        tx = sx + i * (ts + gap)
-        c = ["#8B5CF6","#7C6BF5","#6366F1","#5B7BF0","#4F8DEE","#4599EC","#38BDF8","#2CC8F3","#22D3EE","#A855F7"][i]
-        glow.append(f'<circle cx="{tx+ts/2:.0f}" cy="{sy+ts/2:.0f}" r="{ts*0.66:.0f}" fill="{c}" opacity="0.30"/>')
-        td = squircle(tx, sy, ts, ts, 26, seg=10)
-        tiles.append(
-            f'<path d="{td}" fill="{T["tile"][0]}" fill-opacity="{T["tile"][1]}"/>'
-            f'<path d="{td}" fill="url(#sheen{uid})"/>'
-            f'<path d="{td}" fill="none" stroke="url(#rim{uid})" stroke-width="1.2"/>'
-            + icon(k, tx + (ts - 42) / 2.0, sy + (ts - 42) / 2.0, 42, T["icon"], T["icon_op"]))
-
-    inner = f'<g filter="url(#soft{uid})" opacity="0.5">{"".join(glow)}</g>' + "".join(tiles)
-
-    svg = (head(W, H, uid, 30, BLOBDEFS[uid] + defs_common(T, uid, blur=26) +
-                f'<clipPath id="clip{uid}p"><path d="{P}"/></clipPath>')
-           + canvas_open(W, H, T, uid)
-           + glass_panel(uid, uid + "p", P, T, inner)
-           + '</g></svg>')
-    write(f"stack-{theme}.svg", svg)
-
-
-# ─────────────────────────────────────────── PROJECT CARDS ─────────────────────
-PROJECTS = [
-    ("compoundme", "CompoundMe", "Personal finance & habit tracking, built to compound small wins.",
-     ["Flutter", "Dart"]),
-    ("sikaya", "SiKaya", "Integrated accounting & asset management for small business.",
-     ["Flutter", "Supabase"]),
-    ("photobooth", "Photobooth Studio Pro", "Desktop photobooth — 5 design patterns, cloud delivery.",
-     ["Java", "OOP"]),
-    ("minimarket", "Minimarket POS", "Real-time multi-floor inventory & expiry tracking.",
-     ["Supabase", "Flutter"]),
-]
-
-
-def build_card(slug, title, desc, tags, idx, theme):
-    T = THEMES[theme]; W, H = 600, 186
-    uid = "c%d%s" % (idx, theme[0])
-    r = PALETTE[idx % len(PALETTE)]; r2 = PALETTE[(idx + 2) % len(PALETTE)]
-    BLOBDEFS[uid], BLOBS[uid] = blobs_svg([
-        (560, 16, 210, 150, r, .95), (470, 196, 230, 130, r2, .55),
-        (30, 10, 180, 120, r2, .30),
-    ], T, uid)
-    px, py, pw, ph, pr = 10, 8, 580, 170, 38
-    P = squircle(px, py, pw, ph, pr)
-
-    x = 40
-    chips, cx = [], x
-    for t in tags:
-        w = tw(t, 13, 500) + 28
-        chips.append(chip(cx, 126, w, 30, t, T, uid, fs=13)); cx += w + 10
-
-    ax, ay = 536, 52
-    arrow = (f'<g stroke="{T["t2"]}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" fill="none" opacity="0.8">'
-             f'<path d="M{ax-9},{ay+9} L{ax+9},{ay-9}"/><path d="M{ax-4},{ay-9} L{ax+9},{ay-9} L{ax+9},{ay+4}"/></g>')
-
-    body = f'''
-<text x="{x}" y="70" font-family="{FONT}" font-size="26" font-weight="700" fill="{T['t1']}" letter-spacing="-0.4">{esc(title)}</text>
-<text x="{x}" y="100" font-family="{FONT}" font-size="15" font-weight="400" fill="{T['t2']}">{esc(desc)}</text>
-{"".join(chips)}{arrow}'''
-
-    svg = (head(W, H, uid, 22, BLOBDEFS[uid] + defs_common(T, uid, blur=22) +
-                f'<clipPath id="clip{uid}p"><path d="{P}"/></clipPath>')
-           + canvas_open(W, H, T, uid)
-           + glass_panel(uid, uid + "p", P, T)
-           + body + '</g></svg>')
-    write(f"project-{slug}-{theme}.svg", svg)
-
-
-# ─────────────────────────────────────────────── PILLS ─────────────────────────
-PILLS = [("linkedin", "linkedin", "LinkedIn", "#7C5CFA", "#A78BFA"),
-         ("instagram", "instagram", "Instagram", "#C13AA8", "#F472B6"),
-         ("email", "gmail", "Email", "#4F46E5", "#6D8BFF")]
-
-
-def build_pill(slug, ikey, label, c1, c2):
-    W, H = 214, 60
-    uid = "p" + slug[:3]
-    P = squircle(4, 4, W - 8, H - 8, (H - 8) / 2.0, seg=11)
-    isz, gap = 20, 11
-    total = isz + gap + tw(label, 16, 600)
-    ix = (W - total) / 2.0
-    svg = f'''<svg xmlns="http://www.w3.org/2000/svg" width="{W}" height="{H}" viewBox="0 0 {W} {H}" role="img" fill="none"><defs>
-<linearGradient id="g{uid}" x1="0" y1="0" x2="0.35" y2="1"><stop offset="0" stop-color="{c2}"/><stop offset="1" stop-color="{c1}"/></linearGradient>
-<linearGradient id="gl{uid}" x1="0" y1="0" x2="0.2" y2="1">
-  <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.42"/><stop offset="0.5" stop-color="#FFFFFF" stop-opacity="0.04"/><stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/></linearGradient>
-<linearGradient id="r{uid}" x1="0" y1="0" x2="0.15" y2="1">
-  <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.75"/><stop offset="0.45" stop-color="#FFFFFF" stop-opacity="0.18"/><stop offset="1" stop-color="#FFFFFF" stop-opacity="0.45"/></linearGradient>
-<filter id="d{uid}" x="-40%" y="-40%" width="180%" height="180%"><feDropShadow dx="0" dy="5" stdDeviation="6" flood-color="{c1}" flood-opacity="0.45"/></filter>
-<clipPath id="c{uid}"><path d="{P}"/></clipPath></defs>
-<g filter="url(#d{uid})"><path d="{P}" fill="url(#g{uid})"/></g>
-<g clip-path="url(#c{uid})"><rect width="{W}" height="{H}" fill="url(#gl{uid})"/>
-<ellipse cx="{W*0.3:.0f}" cy="-6" rx="{W*0.45:.0f}" ry="16" fill="#FFFFFF" opacity="0.28"/></g>
-<path d="{P}" fill="none" stroke="url(#r{uid})" stroke-width="1.3"/>
-{icon(ikey, ix, (H - isz) / 2.0, isz, "#FFFFFF", 0.97)}
-<text x="{ix + isz + gap:.1f}" y="{H/2 + 5.6:.1f}" font-family="{FONT}" font-size="16" font-weight="600" fill="#FFFFFF" letter-spacing="0.2">{label}</text>
+    return f'''<svg xmlns="http://www.w3.org/2000/svg" width="{W}" height="{H}" viewBox="0 0 {W} {H}" role="img" fill="none">
+<title>Tech stack</title>
+<style>{STACK_CSS}</style>
+<rect width="{W}" height="{H}" rx="16" fill="{T['bg']}"/>
+{"".join(items)}
+<rect x="0.5" y="0.5" width="{W - 1}" height="{H - 1}" rx="15.5" fill="none"
+      stroke="{T['line']}" stroke-opacity="{T['line_op']}"/>
 </svg>'''
-    write(f"pill-{slug}.svg", svg)
 
 
-# ─────────────────────────────────────────────── FOOTER ────────────────────────
-def build_footer(theme):
-    T = THEMES[theme]; W, H, uid = 1200, 132, "f" + theme[0]
-    BLOBDEFS[uid], BLOBS[uid] = blobs_svg([
-        (60, 132, 300, 150, PALETTE[0], .70), (620, 0, 340, 130, PALETTE[1], .45),
-        (1150, 130, 280, 150, PALETTE[2], .55),
-    ], T, uid)
-    px, py, pw, ph, pr = 34, 20, 1132, 92, 40
-    P = squircle(px, py, pw, ph, pr)
-    msg = "Open for collaboration on meaningful tech projects — let's build something great."
-    body = (f'<text x="{W/2}" y="{py+ph/2+7:.0f}" font-family="{FONT}" font-size="19" font-weight="500" '
-            f'fill="{T["t2"]}" text-anchor="middle" letter-spacing="0.2">{esc(msg)}</text>')
-    svg = (head(W, H, uid, 30, BLOBDEFS[uid] + defs_common(T, uid, blur=24) +
-                f'<clipPath id="clip{uid}p"><path d="{P}"/></clipPath>')
-           + canvas_open(W, H, T, uid)
-           + glass_panel(uid, uid + "p", P, T)
-           + body + '</g></svg>')
-    write(f"footer-{theme}.svg", svg)
+# ──────────────────────────────────────────────────────────────── pills ──────
+PILLS = [("linkedin", "linkedin", "LinkedIn"),
+         ("instagram", "instagram", "Instagram"),
+         ("email", "gmail", "Email")]
+
+
+def build_pill(slug, ikey, label, theme):
+    T = THEMES[theme]
+    H = 52
+    isz, gap, pad = 17, 10, 22
+    W = int(pad * 2 + isz + gap + tw(label, 14, 500))
+    x = pad
+    return f'''<svg xmlns="http://www.w3.org/2000/svg" width="{W}" height="{H}" viewBox="0 0 {W} {H}" role="img" fill="none">
+<title>{label}</title>
+<rect x="0.5" y="0.5" width="{W - 1}" height="{H - 1}" rx="{(H - 1) / 2:.1f}" fill="{T['bg']}"
+      stroke="{T['line']}" stroke-opacity="{T['line_op'] * 1.8:.2f}"/>
+{icon(ikey, x, (H - isz) / 2.0, isz, T['t2'], 0.95)}
+<text x="{x + isz + gap}" y="{H / 2 + 5:.0f}" font-family="{SANS}" font-size="14" font-weight="500"
+      fill="{T['t1']}" letter-spacing="0.1">{label}</text>
+</svg>'''
 
 
 for th in ("dark", "light"):
-    build_hero(th); build_stack(th); build_footer(th)
-    for i, (slug, title, desc, tags) in enumerate(PROJECTS):
-        build_card(slug, title, desc, tags, i, th)
-for p in PILLS:
-    build_pill(*p)
+    write(f"hero-{th}.svg", build_hero(th))
+    write(f"stack-{th}.svg", build_stack(th))
+    for slug, ikey, label in PILLS:
+        write(f"pill-{slug}-{th}.svg", build_pill(slug, ikey, label, th))
 print("done")
