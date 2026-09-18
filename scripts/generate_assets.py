@@ -35,13 +35,13 @@ THEMES = {
         bg="#0B0B0C", dot="#FFFFFF", dot_op=0.13,
         sweep="#FFFFFF", sweep_op=0.95,
         t1="#FAFAFA", t2="#8E8E96", t3="#5F5F67",
-        line="#FFFFFF", line_op=0.09, accent="#3FB950",
+        line="#FFFFFF", line_op=0.09,
     ),
     "light": dict(
         bg="#FCFCFC", dot="#0B0B0C", dot_op=0.13,
         sweep="#0B0B0C", sweep_op=0.62,
         t1="#0B0B0C", t2="#6B6B73", t3="#9C9CA4",
-        line="#0B0B0C", line_op=0.11, accent="#1A7F37",
+        line="#0B0B0C", line_op=0.11,
     ),
 }
 
@@ -84,7 +84,7 @@ def write(name, svg):
 # ───────────────────────────────────────────────────────────────── hero ──────
 HERO_CSS = """
 .fade{opacity:0;animation:rise .85s cubic-bezier(.2,.7,.2,1) forwards}
-.d1{animation-delay:.10s}.d2{animation-delay:.24s}.d3{animation-delay:.38s}
+.d1{animation-delay:.10s}.d2{animation-delay:.26s}
 @keyframes rise{from{opacity:0;transform:translateY(9px)}to{opacity:1;transform:translateY(0)}}
 .sw1{animation:s1 11s linear infinite}
 .sw2{animation:s2 19s linear infinite;animation-delay:-7s}
@@ -92,13 +92,8 @@ HERO_CSS = """
               to{transform:translateX(1380px) skewX(-14deg)}}
 @keyframes s2{from{transform:translateX(1380px) skewX(-14deg)}
               to{transform:translateX(-780px) skewX(-14deg)}}
-.ping{transform-box:fill-box;transform-origin:center;
-      animation:ping 2.8s cubic-bezier(.2,.7,.4,1) infinite}
-@keyframes ping{0%{transform:scale(1);opacity:.55}
-                70%{transform:scale(3.4);opacity:0}
-                100%{transform:scale(3.4);opacity:0}}
 @media (prefers-reduced-motion:reduce){
-  .sw1,.sw2,.ping{animation:none}
+  .sw1,.sw2{animation:none}
   .fade{opacity:1;animation:none;transform:none}
 }
 """
@@ -106,30 +101,16 @@ HERO_CSS = """
 
 def build_hero(theme):
     T = THEMES[theme]
-    W, H = 1200, 300
+    W, H = 1200, 240
     cx = W / 2.0
     u = theme[0]
 
-    status = "AVAILABLE FOR COLLABORATION"
     name = "Hisyam Khaeru Umam"
-    role = "Software Developer  ·  Flutter, Dart & Supabase"
+    role = "Developer"
 
-    # status row: pulsing dot + mono caption, centred as one group
-    sw = tw(status, 11.5, mono=True) + 1.6 * (len(status) - 1)
-    gw = 7 + 10 + sw
-    gx = cx - gw / 2.0
-    dot_cx, dot_cy = gx + 3.5, 86.0
-    status_g = (
-        f'<g class="fade d1">'
-        f'<circle class="ping" cx="{dot_cx:.1f}" cy="{dot_cy}" r="3.5" fill="{T["accent"]}"/>'
-        f'<circle cx="{dot_cx:.1f}" cy="{dot_cy}" r="3.5" fill="{T["accent"]}"/>'
-        f'<text x="{gx + 17:.1f}" y="{dot_cy + 4:.1f}" font-family="{MONO}" font-size="11.5" '
-        f'fill="{T["t2"]}" letter-spacing="1.6">{status}</text></g>')
-
-    body = f'''{status_g}
-<text class="fade d2" x="{cx}" y="172" text-anchor="middle" font-family="{SANS}" font-size="62"
-      font-weight="700" fill="{T['t1']}" letter-spacing="-1.8">{esc(name)}</text>
-<text class="fade d3" x="{cx}" y="216" text-anchor="middle" font-family="{SANS}" font-size="18"
+    body = f'''<text class="fade d1" x="{cx}" y="122" text-anchor="middle" font-family="{SANS}"
+      font-size="62" font-weight="700" fill="{T['t1']}" letter-spacing="-1.8">{esc(name)}</text>
+<text class="fade d2" x="{cx}" y="162" text-anchor="middle" font-family="{SANS}" font-size="18"
       font-weight="400" fill="{T['t2']}" letter-spacing="0.2">{esc(role)}</text>'''
 
     return f'''<svg xmlns="http://www.w3.org/2000/svg" width="{W}" height="{H}" viewBox="0 0 {W} {H}" role="img" fill="none">

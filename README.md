@@ -11,7 +11,7 @@
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="assets/hero-dark.svg">
   <source media="(prefers-color-scheme: light)" srcset="assets/hero-light.svg">
-  <img src="assets/hero-dark.svg" alt="Hisyam Khaeru Umam — Software Developer. Flutter, Dart and Supabase." width="100%">
+  <img src="assets/hero-dark.svg" alt="Hisyam Khaeru Umam — Developer" width="100%">
 </picture>
 
 <br>
